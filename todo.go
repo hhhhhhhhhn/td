@@ -23,18 +23,11 @@ func (t *Todo) CalculateChildrenDoneAndOf() (done, of int) {
 	return done, of
 }
 
-func (t *Todo) UpdateDoneRecursive() {
+func (t *Todo) UpdateRecursive() {
 	for {
-		childrenDone, childrenOf := t.CalculateChildrenDoneAndOf()
-
-		if childrenOf == 0 {
-			t.Done = 0
-		} else {
-			t.Done = t.Of * childrenDone / childrenOf
-		}
+		t.Done, t.Of = t.CalculateChildrenDoneAndOf()
 
 		t = t.Parent
-
 		if t == nil {
 			return
 		}
@@ -48,7 +41,7 @@ func (parent *Todo) AddChild(index int) *Todo {
 		parent.Children[i] = parent.Children[i-1]
 	}
 	parent.Children[index] = todo
-	parent.UpdateDoneRecursive()
+	parent.UpdateRecursive()
 	return todo
 }
 

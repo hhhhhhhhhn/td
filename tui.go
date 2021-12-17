@@ -40,11 +40,13 @@ func initWindow() (*gc.Window, *gc.Screen, error) {
 
 var offset = 1
 
-func renderTodoChildren(w *gc.Window, todo *Todo, scroll, selection int) {
+func renderTodoChildren(todo *Todo, scroll, selection int) {
 	for y:=offset; y<height; y++ {
 		todoIndex := scroll + y - offset
 
 		if todoIndex >= len(todo.Children) {
+			window.Move(y, 0)
+			window.ClearToBottom()
 			break
 		}
 
@@ -56,33 +58,35 @@ func renderTodoChildren(w *gc.Window, todo *Todo, scroll, selection int) {
 			color = 1
 		}
 
-		w.ColorOn(color)
-		w.Move(y, 0)
-		w.ClearToEOL()
+		window.ColorOn(color)
+		window.Move(y, 0)
+		window.ClearToEOL()
 
 		if todoIndex == selection {
-			w.Print(strings.Repeat(" ", width))
+			window.Print(strings.Repeat(" ", width))
 		}
 
-		if len(todo.Children[todoIndex].Children) == 0 {
-			w.MovePrint(y, 0, todo.Children[todoIndex].Title)
-			w.AttrOn(gc.A_UNDERLINE)
+		if !hasChildren(todo.Children[todoIndex]) {
+			window.MovePrint(y, 0, todo.Children[todoIndex].Title)
+			window.AttrOn(gc.A_UNDERLINE)
 		} else {
-			w.MovePrint(y, 0, "> " + todo.Children[todoIndex].Title)
+			window.MovePrint(y, 0, "> " + todo.Children[todoIndex].Title)
 		}
 
-		w.MovePrintf(y, width - 8, "%2d", todo.Children[todoIndex].Done)
+		window.MovePrintf(y, width - 8, "%2d", todo.Children[todoIndex].Done)
 
-		w.AttrOff(gc.A_UNDERLINE)
-		w.MovePrint(y, width - 5, "/")
+		window.AttrOff(gc.A_UNDERLINE)
+		window.MovePrint(y, width - 5, "/")
 
-		w.AttrOn(gc.A_UNDERLINE)
-		w.MovePrintf(y, width - 3, "%2d", todo.Children[todoIndex].Of)
-		w.AttrOff(gc.A_UNDERLINE)
+		if !hasChildren(todo.Children[todoIndex]) {
+			window.AttrOn(gc.A_UNDERLINE)
+		}
+		window.MovePrintf(y, width - 3, "%2d", todo.Children[todoIndex].Of)
+		window.AttrOff(gc.A_UNDERLINE)
 	}
 }
 
-func renderLocation(w *gc.Window, todo *Todo) {
+func renderLocation(todo *Todo) {
 	location := todo.Title
 	for {
 		todo = todo.Parent
@@ -91,10 +95,8 @@ func renderLocation(w *gc.Window, todo *Todo) {
 		}
 		location = todo.Title + " > " + location
 	}
-	w.ColorOn(3)
-	w.AttrOn(gc.A_CHARTEXT)
-	w.MovePrint(0, 0, center(location, width))
-	w.AttrOff(gc.A_CHARTEXT)
+	window.ColorOn(3)
+	window.MovePrint(0, 0, center(location, width))
 }
 
 func center(str string, width int) string {
@@ -103,7 +105,7 @@ func center(str string, width int) string {
 	return strings.Repeat(" ", paddingLeft) + str + strings.Repeat(" ", paddingRight)
 }
 
-func enterEditMode(window *gc.Window, str string, y int, x int) string {
+func enterEditMode(str string, y int, x int) string {
 	gc.Cursor(1)
 	originalCopy := str
 	cursor := len(str)

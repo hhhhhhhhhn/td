@@ -1,21 +1,28 @@
 package main
 
 import (
-	"fmt"
+	"fmt" 
 	"os"
 	"os/signal"
 	"syscall"
+	"sort"
 
 	gc "github.com/rthornton128/goncurses"
 )
 
+var scroll, selection int
+var currentTodo *Todo
+var window *gc.Window
+var screen *gc.Screen
+
 func main() {
-	window, screen, _ := initWindow()
+	var err error
+	window, screen, err = initWindow()
 	defer screen.Delete()
 	defer screen.End()
 	defer window.Delete()
 
-	currentTodo, err := Load()
+	currentTodo, err = Load()
 	if err != nil || currentTodo == nil {
 		fmt.Fprintln(os.Stderr, err)
 		currentTodo = &Todo{Title: "Home", Of: 10}
@@ -25,11 +32,8 @@ func main() {
 
 	setupCloseHandler(&currentTodo)
 
-	scroll := 0
-	selection := 0
-
-	renderTodoChildren(window, currentTodo, scroll, selection)
-	renderLocation(window, currentTodo)
+	renderTodoChildren(currentTodo, scroll, selection)
+	renderLocation(currentTodo)
 
 	for {
 		switch window.GetChar() {
@@ -41,120 +45,136 @@ func main() {
 			gc.End()
 			return
 		case 'j':
-			if selection < len(currentTodo.Children) - 1 {
-				selection++
-				if scroll + height - offset < selection + 1 {
-					scroll++
-				}
-			}
+			changeSelection(selection + 1)
 			break
 		case 'k':
-			if selection > 0 {
-				selection--
-				if selection < scroll {
-					scroll--
-				}
-			}
+			changeSelection(selection - 1)
 			break
 		case 'l':
-			if len(currentTodo.Children[selection].Children) == 0 {
+			if !hasChildren(currentTodo.Children[selection]) {
 				currentTodo.Children[selection].AddChild(0)
 			}
-			currentTodo = currentTodo.Children[selection]
-			window.Erase()
-			renderLocation(window, currentTodo)
-			selection = 0
-			scroll = 0
+			navigateTo(currentTodo.Children[selection])
+			break
 		case 'h':
 			if currentTodo.Parent != nil {
-				currentTodo = currentTodo.Parent
-				window.Erase()
-				renderLocation(window, currentTodo)
-				selection = 0
-				scroll = 0
+				navigateTo(currentTodo.Parent)
 			}
+			break
 		case 'K':
-			if len(currentTodo.Children[selection].Children) == 0 {
+			if !hasChildren(currentTodo.Children[selection]) {
 				currentTodo.Children[selection].Done++
-				currentTodo.UpdateDoneRecursive()
+				currentTodo.UpdateRecursive()
 			}
 			break
 		case 'J':
-			if len(currentTodo.Children[selection].Children) == 0 {
+			if !hasChildren(currentTodo.Children[selection]) {
 				currentTodo.Children[selection].Done--
-				currentTodo.UpdateDoneRecursive()
+				currentTodo.UpdateRecursive()
 			}
 			break
 		case 'L':
-			currentTodo.Children[selection].Of++
-			if len(currentTodo.Children[selection].Children) > 0 {
-				currentTodo.Children[selection].UpdateDoneRecursive()
+			if !hasChildren(currentTodo.Children[selection]) {
+				currentTodo.Children[selection].Of++
+				currentTodo.UpdateRecursive()
 			}
 			break
 		case 'H':
-			currentTodo.Children[selection].Of--
-			if len(currentTodo.Children[selection].Children) > 0 {
-				currentTodo.Children[selection].UpdateDoneRecursive()
+			if !hasChildren(currentTodo.Children[selection]) {
+				currentTodo.Children[selection].Of--
+				currentTodo.UpdateRecursive()
 			}
 			break
 		case 'd':
 			if window.GetChar() == 'd' { // double press
-				currentTodo.Children = append(
-					currentTodo.Children[:selection], 
-					currentTodo.Children[selection+1:]..., 
-				)
-				if selection == len(currentTodo.Children) && selection != 0{
-					selection--
-				}
+				deleteSelection()
 			}
-			if len(currentTodo.Children) == 0 {
-				if currentTodo.Parent == nil {
-					currentTodo.AddChild(0)
-				} else {
-					currentTodo = currentTodo.Parent
-					selection = 0
-					scroll = 0
-				}
-			}
-			window.Erase()
-			renderLocation(window, currentTodo)
 			break
 		case 'e':
-			var x int
-			if len(currentTodo.Children[selection].Children) == 0 {
-				x = 0
-			} else {
-				x = 2
-			}
-			currentTodo.Children[selection].Title = enterEditMode(
-				window,
-				currentTodo.Children[selection].Title,
-				selection - scroll + offset,
-				x,
-			)
+			editSelection()
 			break
 		case 'o':
-			selection++
-			if scroll + height - offset < selection + 1 {
-				scroll++
-			}
-			currentTodo.AddChild(selection)
-			renderTodoChildren(window, currentTodo, scroll, selection)
-			currentTodo.Children[selection].Title = enterEditMode(
-				window,
-				currentTodo.Children[selection].Title,
-				selection - scroll + offset,
-				0,
-			)
+			currentTodo.AddChild(selection + 1)
+			changeSelection(selection + 1)
+			renderTodoChildren(currentTodo, scroll, selection)
+			editSelection()
 			break
 		case 'r':
 			window.Clear()
-			renderLocation(window, currentTodo)
-			Save(currentTodo)
+			sortTodos()
+			renderLocation(currentTodo)
 			break
 		}
-	renderTodoChildren(window, currentTodo, scroll, selection)
+	renderTodoChildren(currentTodo, scroll, selection)
 	}
+}
+
+func handleScroll() {
+	if scroll + height - offset < selection + 1 {
+		scroll++
+	} else if selection < scroll {
+		scroll--
+	}
+}
+
+func changeSelection(newSelection int) {
+	if newSelection >= 0 && newSelection < len(currentTodo.Children) {
+		selection = newSelection
+	}
+	handleScroll()
+}
+
+func navigateTo(todo *Todo) {
+	currentTodo = todo
+	sortTodos()
+	window.Erase()
+	renderLocation(currentTodo)
+	selection = 0
+	scroll = 0
+}
+
+// Sorts by work yet to be done
+func sortTodos() {
+	sort.SliceStable(currentTodo.Children, func(i, j int) bool {
+		return (
+			(currentTodo.Children[i].Of - currentTodo.Children[i].Done) >
+			(currentTodo.Children[j].Of - currentTodo.Children[j].Done))
+	})
+}
+
+func hasChildren(todo *Todo) bool {
+	return len(todo.Children) > 0
+}
+
+func deleteSelection() {
+	currentTodo.Children = append(
+		currentTodo.Children[:selection], 
+		currentTodo.Children[selection+1:]..., 
+	)
+	if selection == len(currentTodo.Children) && selection != 0{
+		selection--
+	}
+	if !hasChildren(currentTodo) {
+		if currentTodo.Parent == nil {
+			currentTodo.AddChild(0)
+		} else {
+			navigateTo(currentTodo.Parent)
+		}
+	}
+}
+
+func editSelection() {
+	var x int
+	if len(currentTodo.Children[selection].Children) == 0 {
+		x = 0
+	} else {
+		x = 2
+	}
+	currentTodo.Children[selection].Title = enterEditMode(
+		currentTodo.Children[selection].Title,
+		selection - scroll + offset,
+		x,
+	)
 }
 
 func setupCloseHandler(currentTodo **Todo) {
@@ -167,6 +187,9 @@ func setupCloseHandler(currentTodo **Todo) {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
+		screen.Delete()
+		screen.End()
+		window.Delete()
 		gc.End()
 		os.Exit(0)
 	}()
