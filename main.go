@@ -103,12 +103,17 @@ func main() {
 					currentTodo.Children[:selection], 
 					currentTodo.Children[selection+1:]..., 
 				)
+				if selection == len(currentTodo.Children) && selection != 0{
+					selection--
+				}
 			}
 			if len(currentTodo.Children) == 0 {
 				if currentTodo.Parent == nil {
 					currentTodo.AddChild(0)
 				} else {
 					currentTodo = currentTodo.Parent
+					selection = 0
+					scroll = 0
 				}
 			}
 			window.Erase()
