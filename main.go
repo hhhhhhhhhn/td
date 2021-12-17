@@ -161,6 +161,7 @@ func deleteSelection() {
 			navigateTo(currentTodo.Parent)
 		}
 	}
+	currentTodo.UpdateRecursive()
 }
 
 func editSelection() {
