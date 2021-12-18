@@ -5,10 +5,10 @@ It saves the todo list in JSON format in `~/.td`.
 ## Bindings
 - `j/k`: Move up/down
 - `h/l`: Move outside/inside
-- `o`: Create new todo
+- `o/O`: Create new todo
 - `dd`: Delete todo
-- `e`: Edit todo title
+- `e/i/I/a/A`: Edit todo title
 - `J/K`: Change completeness
 - `H/L`: Change weight
 - `r`: Redraw
-- `ESC/Ctrl+C`: Exit
+- `q/ESC/Ctrl+C`: Exit

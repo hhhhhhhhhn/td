@@ -37,8 +37,7 @@ func main() {
 
 	for {
 		switch window.GetChar() {
-		case gc.KEY_ESC:
-		case 'q':
+		case gc.KEY_ESC, 'q':
 			err := Save(currentTodo)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -91,20 +90,23 @@ func main() {
 				deleteSelection()
 			}
 			break
-		case 'e':
-			editSelection()
+		case 'e', 'A', 'a':
+			editSelection(len(currentTodo.Children[selection].Title))
+			break
+		case 'I', 'i':
+			editSelection(0)
 			break
 		case 'o':
 			currentTodo.AddChild(selection + 1)
 			changeSelection(selection + 1)
 			renderTodoChildren(currentTodo, scroll, selection)
-			editSelection()
+			editSelection(0)
 			break
 		case 'O':
 			currentTodo.AddChild(selection)
 			changeSelection(selection)
 			renderTodoChildren(currentTodo, scroll, selection)
-			editSelection()
+			editSelection(0)
 			break
 		case 'r':
 			window.Clear()
@@ -171,7 +173,7 @@ func deleteSelection() {
 	currentTodo.UpdateRecursive()
 }
 
-func editSelection() {
+func editSelection(cursor int) {
 	var x int
 	if len(currentTodo.Children[selection].Children) == 0 {
 		x = 0
@@ -180,6 +182,7 @@ func editSelection() {
 	}
 	currentTodo.Children[selection].Title = enterEditMode(
 		currentTodo.Children[selection].Title,
+		cursor,
 		selection - scroll + offset,
 		x,
 	)

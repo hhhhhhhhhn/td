@@ -105,12 +105,11 @@ func center(str string, width int) string {
 	return strings.Repeat(" ", paddingLeft) + str + strings.Repeat(" ", paddingRight)
 }
 
-func enterEditMode(str string, y int, x int) string {
+func enterEditMode(str string, cursor int, y int, x int) string {
 	gc.Cursor(1)
-	//originalCopy := str
-	cursor := len(str)
 	window.ColorOn(2)
 	window.MovePrint(y, x, str)
+	window.Move(y, x + cursor)
 	for {
 		chr := window.GetChar()
 		switch chr {
@@ -130,8 +129,7 @@ func enterEditMode(str string, y int, x int) string {
 				window.MovePrint(y, x + len(str), " ")
 			}
 			break
-		case '\n':
-		case gc.KEY_ESC:
+		case '\n', gc.KEY_ESC:
 			gc.Cursor(0)
 			return str
 		default:
