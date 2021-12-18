@@ -38,6 +38,7 @@ func main() {
 	for {
 		switch window.GetChar() {
 		case gc.KEY_ESC:
+		case 'q':
 			err := Save(currentTodo)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -96,6 +97,12 @@ func main() {
 		case 'o':
 			currentTodo.AddChild(selection + 1)
 			changeSelection(selection + 1)
+			renderTodoChildren(currentTodo, scroll, selection)
+			editSelection()
+			break
+		case 'O':
+			currentTodo.AddChild(selection)
+			changeSelection(selection)
 			renderTodoChildren(currentTodo, scroll, selection)
 			editSelection()
 			break

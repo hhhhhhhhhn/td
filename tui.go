@@ -107,7 +107,7 @@ func center(str string, width int) string {
 
 func enterEditMode(str string, y int, x int) string {
 	gc.Cursor(1)
-	originalCopy := str
+	//originalCopy := str
 	cursor := len(str)
 	window.ColorOn(2)
 	window.MovePrint(y, x, str)
@@ -131,11 +131,9 @@ func enterEditMode(str string, y int, x int) string {
 			}
 			break
 		case '\n':
-			gc.Cursor(0)
-			return str
 		case gc.KEY_ESC:
 			gc.Cursor(0)
-			return originalCopy
+			return str
 		default:
 			str = str[:cursor] + string(chr) + str[cursor:]
 			cursor++
