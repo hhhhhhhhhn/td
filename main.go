@@ -143,12 +143,44 @@ func navigateTo(todo *Todo) {
 }
 
 // Sorts by work yet to be done
+// Overriden by numbers
 func sortTodos() {
 	sort.SliceStable(currentTodo.Children, func(i, j int) bool {
+		iStart := startingNumber(currentTodo.Children[i].Title)
+		jStart := startingNumber(currentTodo.Children[j].Title)
+
+		if iStart != jStart {
+			return iStart < jStart
+		}
+
 		return (
 			(currentTodo.Children[i].Of - currentTodo.Children[i].Done) >
 			(currentTodo.Children[j].Of - currentTodo.Children[j].Done))
 	})
+}
+
+func startingNumber(str string) int {
+	value := 0
+	for i, char := range str {
+		digit := asDigit(char)
+		if i == 0 && digit == -1 {
+			return 9999999 // So that all non-numbered todos go at the end
+		}
+		if digit == -1 {
+			break
+		}
+		value = value*10 + digit
+	}
+	return value
+}
+
+// Returns -1 if is not a digit
+func asDigit(char rune) int {
+	value := char - '0'
+	if value >= 10 || value < 0 {
+		return -1
+	}
+	return int(value)
 }
 
 func hasChildren(todo *Todo) bool {
